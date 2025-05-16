@@ -1,6 +1,7 @@
 #include<winsock2.h>
 #include<iostream>
 
+// Function for sending message
 void sendMessage(SOCKET sock, const std::string& message) {
     char buffer[1024];
     send(sock, message.c_str(), message.size(), 0);
@@ -15,11 +16,13 @@ int main() {
 
     SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
 
+    // The address at which the IPV4 server resides at AKA port 12345, host 127.0.0.1
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost
 
+    // Connects the client socket to the server address
     connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
     std::cout <<"Successfuly connected to server!\n";
 
