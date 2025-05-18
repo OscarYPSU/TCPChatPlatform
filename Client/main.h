@@ -11,7 +11,6 @@
 class main {
 public:
     std::string sendMessage(SOCKET sock, const std::string& message);
-
 };
 
 #endif //MAIN_H

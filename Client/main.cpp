@@ -25,10 +25,10 @@ int main(int argc, char *argv[]) {
     serverAddr.sin_port = htons(12345);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost
 
+
     // Connects the client socket to the server address
     connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
     std::cout <<"Successfuly connected to server!\n";
-
 
     QApplication app(argc, argv);
     TestUI window(sock);

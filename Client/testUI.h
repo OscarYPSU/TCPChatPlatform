@@ -11,12 +11,11 @@ class TestUI: public QMainWindow {
         explicit TestUI(SOCKET sock, QWidget *parent = nullptr);
 
     private slots:
-        void onSendButtonClicked(); // 👈 Slot (function) to handle the click
-
+        void onSendButtonClicked(); // Slot (function) to handle the click
 
     private:
         Ui::TestUI ui;
-        main client;
+        main main;
         SOCKET clientsock;
 };
 
