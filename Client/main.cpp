@@ -1,16 +1,19 @@
 #include<winsock2.h>
 #include<iostream>
+#include "testUI.h"
+#include "main.h"
 
 // Function for sending message
-void sendMessage(SOCKET sock, const std::string& message) {
+std::string main::sendMessage(SOCKET sock, const std::string& message) {
     char buffer[1024];
     send(sock, message.c_str(), message.size(), 0);
     int bytesReceieved = recv(sock, buffer, sizeof(buffer), 0);
     buffer[bytesReceieved] = '\0';
     std::cout << "Server echoed: " << buffer << "\n";
+    return std::string(buffer);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     WSADATA wsa; // The WSADATA structure that will get filled with implementation info
     WSAStartup(MAKEWORD(2, 2), &wsa); //  initializes the winsock library
 
@@ -26,22 +29,10 @@ int main() {
     connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
     std::cout <<"Successfuly connected to server!\n";
 
-    std::string message;
-    char buffer[1024];
 
-    sendMessage(sock, "testing");
-    /*
-    while (true) {
-        std::getline(std::cin, message);
-        send(sock, message.c_str(), message.size(), 0);
+    QApplication app(argc, argv);
+    TestUI window(sock);
+    window.show();
 
-        int bytes = recv(sock, buffer, sizeof(buffer), 0);
-        buffer[bytes] = '\0';
-        std::cout << "Server echoed: " << buffer << "\n";
-    }
-    */
-
-    closesocket(sock);
-    WSACleanup();
-    return 0;
+    return app.exec();
 }
