@@ -1,5 +1,32 @@
 #include <winsock2.h>
 #include <iostream>
+#include <thread>
+#include <vector>
+#include <mutex>
+
+std::vector<SOCKET> clients;
+std::mutex clientsMutex;
+
+void handleClients(SOCKET clientSocket) {
+    char buffer[1024];
+
+    while (true) {
+        // Whatever is sent through the client socket is saved to buffer data structure and saved to bytresReceived data
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived <= 0) break; // error occured
+
+        // Gets rid of garbage information
+        buffer[bytesReceived] = '\0';
+        std::cout << "Client says: " << buffer << "\n";
+
+        std::lock_guard<std::mutex> lock(clientsMutex);
+        for (SOCKET client: clients) {
+            if (client != clientSocket) {
+                send(client, buffer, bytesReceived, 0);
+            }
+        }
+    }
+}
 
 int main() {
     // starts WSADATA api
@@ -21,29 +48,19 @@ int main() {
     //  initiliazes the server socket for 1 client
     listen(serverSocket, 1);
 
-    // Starst the server socket to wait for a client connection
-    std::cout << "Server started. Waiting for one client...\n";
-    SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
-    std::cout << "Client connected!\n";
+    // start  the server socket to wait for a client connection
+    std::cout << "Server started. Waiting for clients...\n";
 
-    // Data to store message
-    char buffer[1024];
     while (true) {
-
-        // Whatever is sent through the client socket is saved to buffer data structure and saved to bytresReceived data
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-        if (bytesReceived <= 0) break; // error occured
-
-        // Gets rid of garbage information
-        buffer[bytesReceived] = '\0';
-        std::cout << "Client says: " << buffer << "\n";
-
-        // Sends the message back to the client socket
-        send(clientSocket, buffer, bytesReceived, 0);
+        SOCKET clientSocket = accept(serverSocket, nullptr
+            , nullptr);
+        {
+            std::lock_guard<std::mutex> lock(clientsMutex);
+            clients.push_back(clientSocket);
+        }
+        std::thread(handleClients, clientSocket).detach();
+        std::cout << "Client connected\n";
     }
-    // Closes both socket and cleans up the api
-    closesocket(clientSocket);
-    closesocket(serverSocket);
     WSACleanup();
     return 0;
 }

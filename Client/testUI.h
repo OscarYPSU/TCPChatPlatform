@@ -12,6 +12,7 @@ class TestUI: public QMainWindow {
 
     private slots:
         void onSendButtonClicked(); // Slot (function) to handle the click
+        void updateReceivedMessage();
 
     private:
         Ui::TestUI ui;

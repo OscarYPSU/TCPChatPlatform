@@ -1,16 +1,33 @@
 #include<winsock2.h>
 #include<iostream>
+#include<thread>
+#include<mutex>
+#include<vector>
 #include "testUI.h"
 #include "main.h"
 
+std::vector<std::string> receivedMessages;
+std::mutex messagesMutex;
+
 // Function for sending message
-std::string main::sendMessage(SOCKET sock, const std::string& message) {
-    char buffer[1024];
+void main::sendMessage(SOCKET sock, const std::string& message) {
     send(sock, message.c_str(), message.size(), 0);
-    int bytesReceieved = recv(sock, buffer, sizeof(buffer), 0);
-    buffer[bytesReceieved] = '\0';
-    std::cout << "Server echoed: " << buffer << "\n";
-    return std::string(buffer);
+}
+
+void receiveMessage(SOCKET sock) {
+    char buffer[1024];
+    while (true) {
+        int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
+        if (bytesReceived <= 0) break;
+        buffer[bytesReceived] = '\0';
+        std::cout << ">> " << buffer << "\n";
+        std::string message(buffer); // converts char to string to be added to vector
+        // lock the vector before modifying it
+        {
+            std::lock_guard<std::mutex> lock(messagesMutex);
+            receivedMessages.push_back(message);
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -29,6 +46,8 @@ int main(int argc, char *argv[]) {
     // Connects the client socket to the server address
     connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
     std::cout <<"Successfuly connected to server!\n";
+
+    std::thread(receiveMessage, sock).detach();
 
     QApplication app(argc, argv);
     TestUI window(sock);
