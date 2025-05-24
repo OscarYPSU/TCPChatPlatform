@@ -3,8 +3,10 @@
 #include<thread>
 #include<mutex>
 #include<vector>
-#include "testUI.h"
+#include "UI/testUI.h"
 #include "main.h"
+#include "UI/frontPage.h"
+#include "sqlite3/sqlite3.h"
 
 std::vector<std::string> receivedMessages;
 std::mutex messagesMutex;
@@ -31,6 +33,15 @@ void receiveMessage(SOCKET sock) {
 }
 
 int main(int argc, char *argv[]) {
+    // connects to the database
+    sqlite3 *db;
+    int rc = sqlite3_open("test.db", &db);
+    if (rc) {
+        std::cerr << "Can't open DB: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Opened DB successfully.\n";
+    }
+
     WSADATA wsa; // The WSADATA structure that will get filled with implementation info
     WSAStartup(MAKEWORD(2, 2), &wsa); //  initializes the winsock library
 
@@ -51,7 +62,16 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
     TestUI window(sock);
-    window.show();
+    frontPage window2(db);
+    window2.show();
 
     return app.exec();
+
+
+    /* for new UI
+    QApplication app(argc, argv);
+    NewPage window;
+    window.show();
+    return app.exec();
+    */
 }

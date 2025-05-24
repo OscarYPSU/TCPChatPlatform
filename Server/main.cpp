@@ -58,7 +58,7 @@ int main() {
             std::lock_guard<std::mutex> lock(clientsMutex);
             clients.push_back(clientSocket);
         }
-        std::thread(handleClients, clientSocket).detach();
+        std::thread(handleClients, clientSocket).detach(); // starts the handling of client in a thread
         std::cout << "Client connected\n";
     }
     WSACleanup();
