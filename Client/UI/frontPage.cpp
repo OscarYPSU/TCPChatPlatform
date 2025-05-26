@@ -3,8 +3,9 @@
 //
 
 #include "frontPage.h"
-#include "../sqlite3/sqlite3.h"
-#include "../sqlite3/SQL.h"
+#include "../globalResource/globals.h"
+#include "../sqlQueries/sql.h"
+#include <libpq-fe.h>
 
 void frontPage::registerButtonClicked() {
     // gets username and password form user input
@@ -16,7 +17,7 @@ void frontPage::registerButtonClicked() {
     std::string passwordString = username.toStdString();
 
     // executes the query
-    sql.registerUser(db, usernameString, passwordString);
+    registerUser(conn, usernameString, passwordString);
 }
 
 void frontPage::loginButtonClicked() {
@@ -26,13 +27,18 @@ void frontPage::loginButtonClicked() {
 
     // process it to std::string data
     std::string usernameString = username.toStdString();
-    std::string passwordString = username.toStdString();
+    std::string passwordString = password.toStdString();
+
+    // sets the global variable of the logged user's name
+    ::username = usernameString;
 
     // executes the query
-    sql.loginUser(db, usernameString, passwordString);
+
+
+    newUI.StackedWidget->setCurrentIndex(1);
 }
 
-frontPage::frontPage(sqlite3 *db, QWidget *parent):QMainWindow(parent), db(db) {
+frontPage::frontPage(PGconn *conn, QWidget *parent):QMainWindow(parent), conn(conn){
     newUI.setupUi(this);
     connect(newUI.registerButton, &QPushButton::clicked, this, &frontPage::registerButtonClicked);
     connect(newUI.loginButton, &QPushButton::clicked, this, &frontPage::loginButtonClicked);

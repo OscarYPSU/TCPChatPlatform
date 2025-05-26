@@ -3,10 +3,12 @@
 #include<thread>
 #include<mutex>
 #include<vector>
+#include <libpq-fe.h>
 #include "UI/testUI.h"
 #include "main.h"
 #include "UI/frontPage.h"
-#include "sqlite3/sqlite3.h"
+#include "sqlQueries/sql.h"
+
 
 std::vector<std::string> receivedMessages;
 std::mutex messagesMutex;
@@ -33,13 +35,15 @@ void receiveMessage(SOCKET sock) {
 }
 
 int main(int argc, char *argv[]) {
+
     // connects to the database
-    sqlite3 *db;
-    int rc = sqlite3_open("test.db", &db);
-    if (rc) {
-        std::cerr << "Can't open DB: " << sqlite3_errmsg(db) << std::endl;
+    PGconn *conn = PQconnectdb("host=localhost port=1234 dbname=TSPChatApplication user=postgres password=Oscarsgyang123");
+    if (PQstatus(conn) != CONNECTION_OK) {
+        std::cerr << "Conneciton to database failed ERROR CODE: " << PQerrorMessage(conn) << "\n";
+        PQfinish(conn);
+        return 1;
     } else {
-        std::cout << "Opened DB successfully.\n";
+        std::cout << "Successfully connected to database\n";
     }
 
     WSADATA wsa; // The WSADATA structure that will get filled with implementation info
@@ -61,17 +65,9 @@ int main(int argc, char *argv[]) {
     std::thread(receiveMessage, sock).detach();
 
     QApplication app(argc, argv);
-    TestUI window(sock);
-    frontPage window2(db);
+    frontPage window2(conn);
     window2.show();
 
     return app.exec();
 
-
-    /* for new UI
-    QApplication app(argc, argv);
-    NewPage window;
-    window.show();
-    return app.exec();
-    */
 }

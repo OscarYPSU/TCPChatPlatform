@@ -7,7 +7,7 @@
 
 #include<iostream>
 
-class SQL {
+class sql {
     public:
         void registerUser(sqlite3 *db, std::string &username, std::string &password);
         void loginUser(sqlite3 *db, std::string &username, std::string &password);

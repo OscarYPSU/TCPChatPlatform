@@ -9,6 +9,8 @@
 #include <iostream>
 #include <vector>
 #include <mutex>
+#include "sqlQueries/sql.h"
+#pragma once
 
 extern std::vector<std::string> receivedMessages;
 extern std::mutex messagesMutex;
@@ -16,6 +18,7 @@ extern std::mutex messagesMutex;
 class main {
 public:
     void sendMessage(SOCKET sock, const std::string& message);
+
 };
 
 #endif //MAIN_H

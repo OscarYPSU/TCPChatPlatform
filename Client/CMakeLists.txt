@@ -5,35 +5,35 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)  # not needed here, but good to include
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_PREFIX_PATH "C:\\Qt\\6.9.0\\mingw_64")
+set(CMAKE_PREFIX_PATH "C:/Qt/6.9.0/msvc2022_64")
 
-find_package(Qt6Widgets REQUIRED)
+# Find Qt modules
+find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui)
 
+include_directories("C:/Program Files/PostgreSQL/17/include")
+link_directories("C:/Program Files/PostgreSQL/17/lib")
 
+add_compile_options(/Zc:__cplusplus)
 add_executable(Client main.cpp
-        UI/testUI.cpp
-        UI/testUI.h
-        UI/testUI.ui
         main.h
         UI/frontPage.cpp
         UI/frontPage.h
-        sqlite3/sqlite3.c
-        sqlite3/sqlite3.h
-        sqlite3/SQL.cpp
-        sqlite3/SQL.h
+        UI/frontPage.ui
+        globalResource/globals.cpp
+        globalResource/globals.h
+        sqlQueries/sql.h
+        sqlQueries/sql.cpp
 )
 
-add_executable(testSQL
-        sqlite3/SQL.cpp
-        sqlite3/SQL.h
-        sqlite3/sqlite3.c
-)
 
 qt_add_resources(RESOURCES_ADDED resources/resources.qrc)
 target_sources(Client PRIVATE ${RESOURCES_ADDED})
-target_link_libraries(Client ws2_32)
-target_link_libraries(Client Qt6::Widgets)
-target_link_libraries(testSQL)
+# Link Qt libraries and postgre libraries
+target_link_libraries(Client
+        Qt6::Widgets
+        ws2_32
+        libpq
+)
 
 
 

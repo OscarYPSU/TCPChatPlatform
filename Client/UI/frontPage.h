@@ -7,14 +7,15 @@
 
 #include <QMainWindow>
 #include "ui_frontPage.h"
-#include "../sqlite3/sqlite3.h"
-#include "../sqlite3/SQL.h"
+#include "../sqlQueries/sql.h"
+#include <libpq-fe.h>
+#pragma once
 
 class frontPage: public QMainWindow {
     Q_OBJECT
 
     public:
-        explicit frontPage(sqlite3 *db, QWidget *parent = nullptr);
+        explicit frontPage(PGconn *conn, QWidget *parent = nullptr);
 
 
     private slots:
@@ -23,8 +24,7 @@ class frontPage: public QMainWindow {
 
     private:
         Ui::frontPage newUI;
-        sqlite3 *db;
-        SQL sql;
+        PGconn *conn;
 };
 
 #endif //NEWPAGE_H
