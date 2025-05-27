@@ -11,6 +11,7 @@
 
 
 int registerUser(PGconn *conn, std::string &username, std::string &password);
+int loginUser(PGconn *conn, std::string &username, std::string &password);
 
 
 #endif //SQL_H

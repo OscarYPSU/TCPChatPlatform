@@ -14,12 +14,30 @@ int registerUser(PGconn *conn, std::string &username, std::string &password) {
     if (PQresultStatus(result) != PGRES_COMMAND_OK) {
         std::cerr << "Creating user failed ERROR CODE: " << PQerrorMessage(conn) << "\n";
         PQclear(result);
-        PQfinish(conn);
         return 1;
     } else {
         std::cout << "Insert successful." << std::endl;
         PQclear(result);
-        PQfinish(conn);
         return 0;
     }
+}
+
+int loginUser(PGconn *conn, std::string &username, std::string &password) {
+    std::string query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "';";
+    PGresult *result = PQexec(conn, query.c_str());
+    if (PQresultStatus(result) != PGRES_TUPLES_OK) {
+        std::cerr << "SELECT failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+        return 1;
+    }
+    int rows = PQntuples(result);
+    if (rows == 0) {
+        std::cout << "No user found with the credentials\n";
+        PQclear(result);
+        return 1;
+    } else {
+        std::cout << "ID: " << PQgetvalue(result, 0, 0) << ", username: " << PQgetvalue(result, 0, 1) << ", password: " << PQgetvalue(result, 0, 2) << "\n";
+    }
+    PQclear(result);
+    return 0;
 }

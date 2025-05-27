@@ -33,9 +33,9 @@ void frontPage::loginButtonClicked() {
     ::username = usernameString;
 
     // executes the query
-
-
-    newUI.StackedWidget->setCurrentIndex(1);
+    if (!loginUser(conn, usernameString, passwordString)) { // if returns 0 meaning success
+        newUI.StackedWidget->setCurrentIndex(1);
+    }
 }
 
 frontPage::frontPage(PGconn *conn, QWidget *parent):QMainWindow(parent), conn(conn){
