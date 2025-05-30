@@ -5,7 +5,10 @@
 #include "frontPage.h"
 #include "../globalResource/globals.h"
 #include "../sqlQueries/sql.h"
+#include "../session/session.h"
 #include <libpq-fe.h>
+#include <mutex>
+#include <thread>
 
 void frontPage::registerButtonClicked() {
     // gets username and password form user input
@@ -18,6 +21,9 @@ void frontPage::registerButtonClicked() {
 
     // executes the query
     registerUser(conn, usernameString, passwordString);
+
+    // hides wrong credential label if user creates a new acc after inputting wrong info
+    newUI.wrongCrfedentialsLabel->hide();
 }
 
 void frontPage::loginButtonClicked() {
@@ -35,11 +41,91 @@ void frontPage::loginButtonClicked() {
     // executes the query
     if (!loginUser(conn, usernameString, passwordString)) { // if returns 0 meaning success
         newUI.StackedWidget->setCurrentIndex(1);
+        // stores the username into singleton class
+        session::getInstance().login(usernameString);
+        main.sendMessage(clientsock, "LOGGEDIN# = " + session::getInstance().getUsername());
+    } else {
+        newUI.wrongCrfedentialsLabel->show();
+    }
+
+}
+
+void frontPage::updateReceivedMessage() {
+    while (true) {
+        std::string message;
+        std::string rawMessage;
+        std::string userTalking;
+        std::string processedMessage;
+
+        {
+            std::lock_guard<std::mutex> lock(messagesMutex);
+            // if the vector is not empty
+            if (!receivedMessages.empty()) {
+                // store the first data and erase it from the vector
+                rawMessage = receivedMessages.front();
+                receivedMessages.erase(receivedMessages.begin());
+
+
+                size_t firstEndingIndex = rawMessage.find(";");
+                size_t secondEndingIndex = rawMessage.find(";", firstEndingIndex + 1);
+                //process the message first
+                // finds the user talking
+                size_t indexUser = rawMessage.find("USER: ") + 6;
+                userTalking = rawMessage.substr(indexUser, firstEndingIndex - indexUser);
+                std::cout << userTalking << "\n"; //logging
+
+                // finds the message
+                size_t messageIndex = rawMessage.find("MESSAGE: ") + 9;
+                message = rawMessage.substr(messageIndex, secondEndingIndex - messageIndex);
+                std::cout << message << "\n"; //logging
+
+                processedMessage = userTalking + ": " + message;
+
+            } else {
+                // stops thread for tiny bit
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                continue;
+            }
+        }
+
+        // This MUST run on the QT GUI thread
+        QMetaObject::invokeMethod(this, [this, processedMessage]() {
+            QString qMessage = QString::fromStdString(processedMessage);
+            newUI.displayMessageText->appendPlainText(qMessage);
+        });
     }
 }
 
-frontPage::frontPage(PGconn *conn, QWidget *parent):QMainWindow(parent), conn(conn){
+void frontPage::onSendButtonClicked() {
+    // Gets Qstring from user input
+    QString inputText = newUI.userMessageTextInput->toPlainText();
+    // converts the input text from Qstring to string class
+    std::string inputStdString = inputText.toStdString();
+    // loads the input text with necessary information to send to server
+    inputStdString = "USER: " + session::getInstance().getUsername() + "; MESSAGE: " + inputStdString + ";";
+
+    std::cout << inputStdString << "\n"; // logging
+
+    main.sendMessage(clientsock, inputStdString); // sends the message over
+
+
+    // Clears the user input
+    newUI.userMessageTextInput->clear();
+
+    // Adds text chat history
+    newUI.displayMessageText->appendPlainText("You: " + inputText);
+
+}
+
+frontPage::frontPage(SOCKET sock, PGconn *conn, QWidget *parent):QMainWindow(parent), clientsock(sock), conn(conn){
     newUI.setupUi(this);
     connect(newUI.registerButton, &QPushButton::clicked, this, &frontPage::registerButtonClicked);
     connect(newUI.loginButton, &QPushButton::clicked, this, &frontPage::loginButtonClicked);
+    connect(newUI.sendButton, &QPushButton::clicked, this, &frontPage::onSendButtonClicked);
+
+    // creates a thread that constantly updates the message box
+    std::thread([this]() { updateReceivedMessage(); }).detach();
+
+    // Hides the wrong user credential text
+    newUI.wrongCrfedentialsLabel->hide();
 }

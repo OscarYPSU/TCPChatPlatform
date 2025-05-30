@@ -4,17 +4,17 @@
 #include<mutex>
 #include<vector>
 #include <libpq-fe.h>
-#include "UI/testUI.h"
 #include "main.h"
 #include "UI/frontPage.h"
 #include "sqlQueries/sql.h"
+#include "session/session.h"
 
 
 std::vector<std::string> receivedMessages;
 std::mutex messagesMutex;
 
 // Function for sending message
-void main::sendMessage(SOCKET sock, const std::string& message) {
+void mainFunction::sendMessage(SOCKET sock, const std::string& message) {
     send(sock, message.c_str(), message.size(), 0);
 }
 
@@ -35,11 +35,10 @@ void receiveMessage(SOCKET sock) {
 }
 
 int main(int argc, char *argv[]) {
-
     // connects to the database
     PGconn *conn = PQconnectdb("host=localhost port=1234 dbname=TSPChatApplication user=postgres password=Oscarsgyang123");
     if (PQstatus(conn) != CONNECTION_OK) {
-        std::cerr << "Conneciton to database failed ERROR CODE: " << PQerrorMessage(conn) << "\n";
+        std::cerr << "Connection to database failed ERROR CODE: " << PQerrorMessage(conn) << "\n";
         PQfinish(conn);
         return 1;
     } else {
@@ -58,14 +57,15 @@ int main(int argc, char *argv[]) {
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Localhost
 
 
-    // Connects the client socket to the server address
+    // Connects the client socket to the server address and sends the server user's username
     connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
+
     std::cout <<"Successfuly connected to server!\n";
 
     std::thread(receiveMessage, sock).detach();
 
     QApplication app(argc, argv);
-    frontPage window2(conn);
+    frontPage window2(sock, conn);
     window2.show();
 
     return app.exec();

@@ -7,24 +7,30 @@
 
 #include <QMainWindow>
 #include "ui_frontPage.h"
+#include "../main.h"
 #include "../sqlQueries/sql.h"
 #include <libpq-fe.h>
+#include <winsock2.h>
 #pragma once
 
 class frontPage: public QMainWindow {
     Q_OBJECT
 
     public:
-        explicit frontPage(PGconn *conn, QWidget *parent = nullptr);
+        explicit frontPage(SOCKET sock, PGconn *conn, QWidget *parent = nullptr);
 
 
     private slots:
         void registerButtonClicked();
         void loginButtonClicked();
+        void updateReceivedMessage();
+        void onSendButtonClicked();
 
     private:
         Ui::frontPage newUI;
         PGconn *conn;
+        mainFunction main;
+        SOCKET clientsock;
 };
 
 #endif //NEWPAGE_H

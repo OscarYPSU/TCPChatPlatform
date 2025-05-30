@@ -15,10 +15,9 @@
 extern std::vector<std::string> receivedMessages;
 extern std::mutex messagesMutex;
 
-class main {
+class mainFunction {
 public:
     void sendMessage(SOCKET sock, const std::string& message);
-
 };
 
 #endif //MAIN_H

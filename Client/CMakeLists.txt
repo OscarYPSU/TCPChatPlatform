@@ -23,6 +23,8 @@ add_executable(Client main.cpp
         globalResource/globals.h
         sqlQueries/sql.h
         sqlQueries/sql.cpp
+        session/session.cpp
+        session/session.h
 )
 
 

@@ -3,9 +3,12 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <unordered_map>
+
 
 std::vector<SOCKET> clients;
 std::mutex clientsMutex;
+std::unordered_map<std::string, SOCKET> userToSocketDictionary;
 
 void handleClients(SOCKET clientSocket) {
     char buffer[1024];
@@ -17,12 +20,22 @@ void handleClients(SOCKET clientSocket) {
 
         // Gets rid of garbage information
         buffer[bytesReceived] = '\0';
-        std::cout << "Client says: " << buffer << "\n";
+        // converts char to string
+        std::string bufferString(buffer);
+        std::cout << "Client says: " << bufferString << "\n";
 
-        std::lock_guard<std::mutex> lock(clientsMutex);
-        for (SOCKET client: clients) {
-            if (client != clientSocket) {
-                send(client, buffer, bytesReceived, 0);
+        // if message includes logging user credentials
+        if (bufferString.find("LOGGEDIN# = ") != std::string::npos) {
+            //logging
+            std::cout << "Storing user " << bufferString.substr(12) << "\n";
+
+            userToSocketDictionary[bufferString.substr(12)] = clientSocket;
+        } else {
+            std::lock_guard<std::mutex> lock(clientsMutex);
+            for (SOCKET client: clients) {
+                if (client != clientSocket) {
+                    send(client, buffer, bytesReceived, 0);
+                }
             }
         }
     }
