@@ -7,11 +7,13 @@
 
 #include <iostream>
 #include <libpq-fe.h>
+#include <vector>
 #pragma once
 
 
 int registerUser(PGconn *conn, std::string &username, std::string &password);
 int loginUser(PGconn *conn, std::string &username, std::string &password);
+std::vector<std::string> getUsernames(PGconn *conn);
 
 
 #endif //SQL_H

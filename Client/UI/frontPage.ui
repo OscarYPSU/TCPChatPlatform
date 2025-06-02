@@ -210,10 +210,10 @@
       </property>
       <property name="geometry">
        <rect>
-        <x>70</x>
+        <x>230</x>
         <y>20</y>
-        <width>691</width>
-        <height>421</height>
+        <width>531</width>
+        <height>391</height>
        </rect>
       </property>
       <property name="readOnly">
@@ -226,9 +226,9 @@
      <widget class="QPlainTextEdit" name="userMessageTextInput">
       <property name="geometry">
        <rect>
-        <x>70</x>
-        <y>470</y>
-        <width>541</width>
+        <x>270</x>
+        <y>430</y>
+        <width>401</width>
         <height>31</height>
        </rect>
       </property>
@@ -236,9 +236,9 @@
      <widget class="QPushButton" name="sendButton">
       <property name="geometry">
        <rect>
-        <x>640</x>
-        <y>470</y>
-        <width>71</width>
+        <x>710</x>
+        <y>420</y>
+        <width>51</width>
         <height>41</height>
        </rect>
       </property>
@@ -262,6 +262,29 @@ border-radius: 50px;
         <width>64</width>
         <height>34</height>
        </size>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="selectPrivateMessageComboBox">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>100</y>
+        <width>151</width>
+        <height>21</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_4">
+      <property name="geometry">
+       <rect>
+        <x>70</x>
+        <y>80</y>
+        <width>101</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Private Message To</string>
       </property>
      </widget>
     </widget>

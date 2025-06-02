@@ -25,6 +25,7 @@ class frontPage: public QMainWindow {
         void loginButtonClicked();
         void updateReceivedMessage();
         void onSendButtonClicked();
+        void loadPrivateMessageComboBox();
 
     private:
         Ui::frontPage newUI;

@@ -44,6 +44,7 @@ void frontPage::loginButtonClicked() {
         // stores the username into singleton class
         session::getInstance().login(usernameString);
         main.sendMessage(clientsock, "LOGGEDIN# = " + session::getInstance().getUsername());
+        loadPrivateMessageComboBox(); // loads up combo box after user logs in
     } else {
         newUI.wrongCrfedentialsLabel->show();
     }
@@ -68,16 +69,16 @@ void frontPage::updateReceivedMessage() {
 
                 size_t firstEndingIndex = rawMessage.find(";");
                 size_t secondEndingIndex = rawMessage.find(";", firstEndingIndex + 1);
-                //process the message first
+
                 // finds the user talking
                 size_t indexUser = rawMessage.find("USER: ") + 6;
                 userTalking = rawMessage.substr(indexUser, firstEndingIndex - indexUser);
-                std::cout << userTalking << "\n"; //logging
+                std::cout << "USER SENDING MESSAGE: " << userTalking << "\n"; //logging
 
                 // finds the message
                 size_t messageIndex = rawMessage.find("MESSAGE: ") + 9;
                 message = rawMessage.substr(messageIndex, secondEndingIndex - messageIndex);
-                std::cout << message << "\n"; //logging
+                std::cout << "SENDING MESSAGE: " << message << "\n"; //logging
 
                 processedMessage = userTalking + ": " + message;
 
@@ -101,10 +102,14 @@ void frontPage::onSendButtonClicked() {
     QString inputText = newUI.userMessageTextInput->toPlainText();
     // converts the input text from Qstring to string class
     std::string inputStdString = inputText.toStdString();
-    // loads the input text with necessary information to send to server
-    inputStdString = "USER: " + session::getInstance().getUsername() + "; MESSAGE: " + inputStdString + ";";
+    // grabs who the message is going to be sent to
+    std::string receiver = newUI.selectPrivateMessageComboBox->currentText().toStdString();
+    std::cout << "RECEIVER : " << receiver << "\n"; // logging
 
-    std::cout << inputStdString << "\n"; // logging
+    // loads the input text with necessary information to send to server
+    inputStdString = "USER: " + session::getInstance().getUsername() + "; MESSAGE: " + inputStdString + ";RECEIVER: " + receiver + ";";
+
+    std::cout << "INPUT STRING: " << inputStdString << "\n"; // logging
 
     main.sendMessage(clientsock, inputStdString); // sends the message over
 
@@ -115,6 +120,14 @@ void frontPage::onSendButtonClicked() {
     // Adds text chat history
     newUI.displayMessageText->appendPlainText("You: " + inputText);
 
+}
+
+void frontPage::loadPrivateMessageComboBox() {
+    std::vector<std::string> usernameList = getUsernames(conn); // gets the usernames lists
+    // fills all existing username into combo box
+    for (std::string username : usernameList) {
+        newUI.selectPrivateMessageComboBox->addItem(QString::fromStdString(username));
+    }
 }
 
 frontPage::frontPage(SOCKET sock, PGconn *conn, QWidget *parent):QMainWindow(parent), clientsock(sock), conn(conn){

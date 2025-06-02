@@ -12,6 +12,7 @@ std::unordered_map<std::string, SOCKET> userToSocketDictionary;
 
 void handleClients(SOCKET clientSocket) {
     char buffer[1024];
+    std::string receiver;
 
     while (true) {
         // Whatever is sent through the client socket is saved to buffer data structure and saved to bytresReceived data
@@ -31,10 +32,23 @@ void handleClients(SOCKET clientSocket) {
 
             userToSocketDictionary[bufferString.substr(12)] = clientSocket;
         } else {
+            // getting the receiver's name || RECEIVER: ####;
+            size_t lastEndingIndex = bufferString.rfind(";");
+            size_t receiverIndex = bufferString.find("RECEIVER: ") + 10;
+            receiver = bufferString.substr(receiverIndex, lastEndingIndex - receiverIndex);
+
+            // logging
+            std::cout << "RECEIVER OF MESSAGE: "<< bufferString << " IS " << receiver;
+
             std::lock_guard<std::mutex> lock(clientsMutex);
-            for (SOCKET client: clients) {
-                if (client != clientSocket) {
-                    send(client, buffer, bytesReceived, 0);
+            // receiver found
+            if (userToSocketDictionary.find(receiver) != userToSocketDictionary.end()){
+                send(userToSocketDictionary[receiver], buffer, bytesReceived, 0);
+            } else {
+                for (SOCKET client: clients) {
+                    if (client != clientSocket) {
+                        send(client, buffer, bytesReceived, 0);
+                    }
                 }
             }
         }
