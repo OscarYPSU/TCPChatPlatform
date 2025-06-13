@@ -32,6 +32,10 @@ class frontPage: public QMainWindow {
         PGconn *conn;
         mainFunction main;
         SOCKET clientsock;
+
+    protected:
+        // overrides when closing the window does
+        void closeEvent(QCloseEvent *event) override;
 };
 
 #endif //NEWPAGE_H

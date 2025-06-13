@@ -130,6 +130,12 @@ void frontPage::loadPrivateMessageComboBox() {
     }
 }
 
+void frontPage::closeEvent(QCloseEvent *event)
+{
+    event->ignore(); // Allows the window to close
+
+}
+
 frontPage::frontPage(SOCKET sock, PGconn *conn, QWidget *parent):QMainWindow(parent), clientsock(sock), conn(conn){
     newUI.setupUi(this);
     connect(newUI.registerButton, &QPushButton::clicked, this, &frontPage::registerButtonClicked);

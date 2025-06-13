@@ -4,15 +4,126 @@
 #include <vector>
 #include <mutex>
 #include <unordered_map>
+#include <libpq-fe.h>
 
 
 std::vector<SOCKET> clients;
 std::mutex clientsMutex;
 std::unordered_map<std::string, SOCKET> userToSocketDictionary;
 
-void handleClients(SOCKET clientSocket) {
+void insertOfflineMessage(std::string user, std::string receiver, std::string message, PGconn *conn) {
+    std::string statement = "insertOfflineMessage";
+    // loads the parameter values into paramterValues to be input into statement
+    const char *parameterValues[3];
+    parameterValues[0] = user.c_str();
+    parameterValues[1] = receiver.c_str();
+    parameterValues[2] = message.c_str();
+
+    // formatting of statements
+    // paramLengths: An array of lengths for binary parameters. For text parameters, set to 0 or NULL.
+    int paramLengths[3] = {0, 0 , 0}; // 0 indicates null-terminated string
+    // paramFormats: An array indicating format (0 for text, 1 for binary). We're using text.
+    int paramFormats[3] = {0, 0 , 0};
+
+    PGresult *result = PQexecPrepared(conn, statement.c_str(), 3, parameterValues, paramLengths, paramFormats, 0);
+
+    // logging
+    if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+        std::cerr << "Execution of prepared statement failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+        PQfinish(conn);
+    } else {
+        std::cout << "Success in adding message into offline databse || LINE 51\n";
+        // Clear the execution result.
+        PQclear(result);
+    }
+}
+
+void deleteOfflineMessages(std::string user, PGconn *conn) {
+
+    const std::string statement = "deleteOfflineMessage";
+
+    // creates a array of character to hold parameters
+    const char *parameterValues[1];
+    parameterValues[0] = user.c_str();
+
+    // paramLengths: An array of lengths for binary parameters. For text parameters, set to 0 or NULL.
+    int paramLengths[1] = {0}; // 0 indicates null-terminated string
+
+    // paramFormats: An array indicating format (0 for text, 1 for binary). We're using text.
+    int paramFormats[1] = {0};
+
+    // PQexecPrepared(conn, statement_name, num_params, param_values, param_lengths, param_formats, result_format)
+    // - conn: The database connection.
+    // - stmt_name.c_str(): The name of the prepared statement to execute.
+    // - 1: The number of parameters being passed.
+    // - paramValues: The array of parameter values.
+    // - paramLengths: The array of parameter lengths.
+    // - paramFormats: The array of parameter formats.
+    // - 0: The desired format for the results (0 for text, 1 for binary).
+    PGresult *result = PQexecPrepared(conn, statement.c_str(), 1, parameterValues, paramLengths, paramFormats, 0);
+
+    // LOGGING
+    if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+        std::cerr << "Execution of prepared statement failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+        PQfinish(conn);
+    } else {
+        std::cout << "Success in deleting message from offline databse || LINE 99\n";
+        // Clear the execution result.
+        PQclear(result);
+    }
+}
+
+void loadOfflineMessages(std::string user, PGconn *conn) {
+    const std::string statement = "getOfflineMessages";
+    // creates a array of character to hold parameters
+    const char *parameterValues[1];
+    parameterValues[0] = user.c_str();
+
+    // paramLengths: An array of lengths for binary parameters. For text parameters, set to 0 or NULL.
+    int paramLengths[1] = {0}; // 0 indicates null-terminated string
+
+    // paramFormats: An array indicating format (0 for text, 1 for binary). We're using text.
+    int paramFormats[1] = {0};
+
+    // PQexecPrepared(conn, statement_name, num_params, param_values, param_lengths, param_formats, result_format)
+    // - conn: The database connection.
+    // - stmt_name.c_str(): The name of the prepared statement to execute.
+    // - 1: The number of parameters being passed.
+    // - paramValues: The array of parameter values.
+    // - paramLengths: The array of parameter lengths.
+    // - paramFormats: The array of parameter formats.
+    // - 0: The desired format for the results (0 for text, 1 for binary).
+    PGresult *result = PQexecPrepared(conn, statement.c_str(), 1, parameterValues, paramLengths, paramFormats, 0);
+
+    // logging
+    if (PQresultStatus(result) != PGRES_TUPLES_OK) {
+        std::cerr << "Execution of prepared statement failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+        PQfinish(conn);
+    } else {
+        int num_rows = PQntuples(result);
+        // LOGGING
+        std::cout << "MESSAGE FOUND\n";
+        if (num_rows > 0) {
+            for (int i = 0; i < num_rows; i++) {
+                std::cout << "MESSAGE NUMBER " << i + 1 <<  ": " << PQgetvalue(result, i, 0) << "\n";
+                send(userToSocketDictionary[user], PQgetvalue(result, i, 0), strlen(PQgetvalue(result, i, 0)), 0);
+            }
+        } else {
+            std::cout << "NO MESSAGE SENT TO : " << user << std::endl;
+        }
+
+        // 7. Clear the execution result.
+        PQclear(result);
+    }
+}
+
+void handleClients(SOCKET clientSocket, PGconn *conn) {
     char buffer[1024];
     std::string receiver;
+    std::string sender;
 
     while (true) {
         // Whatever is sent through the client socket is saved to buffer data structure and saved to bytresReceived data
@@ -30,32 +141,113 @@ void handleClients(SOCKET clientSocket) {
             //logging
             std::cout << "Storing user " << bufferString.substr(12) << "\n";
 
+            // adds user client to a dictionary {name:socket}
             userToSocketDictionary[bufferString.substr(12)] = clientSocket;
-        } else {
+
+            // add loading offline messages here
+            loadOfflineMessages(bufferString.substr(12), conn);
+
+            // deletes the offline messages
+            deleteOfflineMessages(bufferString.substr(12), conn);
+
+        } else { // regular messages
             // getting the receiver's name || RECEIVER: ####;
             size_t lastEndingIndex = bufferString.rfind(";");
             size_t receiverIndex = bufferString.find("RECEIVER: ") + 10;
             receiver = bufferString.substr(receiverIndex, lastEndingIndex - receiverIndex);
 
+            // gets the sender's name d
+            size_t firstEndingIndex = bufferString.find(";");
+            size_t senderIndex = bufferString.find("USER: ") + 6;
+            sender = bufferString.substr(senderIndex, firstEndingIndex - senderIndex);
+
             // logging
-            std::cout << "RECEIVER OF MESSAGE: "<< bufferString << " IS " << receiver;
+            std::cout << "RECEIVER OF MESSAGE: \""<< bufferString << "\" IS " << receiver << "\n";
+            std::cout << "SENDER OF MESSAGE: \"" << bufferString <<  "\" IS " << sender << "\n";
 
             std::lock_guard<std::mutex> lock(clientsMutex);
             // receiver found
             if (userToSocketDictionary.find(receiver) != userToSocketDictionary.end()){
                 send(userToSocketDictionary[receiver], buffer, bytesReceived, 0);
-            } else {
-                for (SOCKET client: clients) {
-                    if (client != clientSocket) {
-                        send(client, buffer, bytesReceived, 0);
-                    }
-                }
+            } else { // receiver is not found AKA receiver is offline or does not exists
+                // validate receiver exists in db
+
+                // log
+                std::cout << "USER IS OFFLINE, SENDING MESSAGE TO DATABASE FOR OFFLINE STORAGE || LINE 166\n";
+
+                // inserts message into db to be sent to user after they log in
+                insertOfflineMessage(sender, receiver, bufferString, conn);
+
             }
         }
     }
 }
 
 int main() {
+    // database connection
+    PGconn *conn = PQconnectdb("host=localhost, port=1234 dbname=TSPChatApplication user=postgres password=Oscarsgyang123");
+    if (PQstatus(conn) != CONNECTION_OK) {
+        std::cerr << "Connection failed: " << PQerrorMessage(conn);
+        PQfinish(conn);
+        return 1;
+    }
+    std::cout << "Connected to PostgreSQL successfully!\n"; // status of connection to database
+
+
+    // prepares all the statement need for later
+    // PQprepare sends the query definition to the database. The database parses and optimizes it.
+    std::string statement = "getOfflineMessages";
+    std::string query = "SELECT messagecontent FROM offlinemessages WHERE receiver = $1;" ;
+    PGresult *resultPrepare = PQprepare(conn, statement.c_str(), query.c_str(), 1, NULL); // 1 = number of parameters, NULL = parameter types (let DB infer)
+
+    // unsuccessful statement preparations
+    if (PQresultStatus(resultPrepare) != PGRES_COMMAND_OK) {
+        std::cerr << "Failed to prepare statement '" << statement << "': " << PQerrorMessage(conn) << std::endl;
+        PQclear(resultPrepare);
+        PQfinish(conn);
+    } else {
+        // successful statement preparation
+        std::cout << "Statement '" << statement << "' prepared successfully.\n";
+        PQclear(resultPrepare); // Always clear the result of PQprepare
+    }
+
+    // loads deleteOfflineMessage statement
+    // PQprepare sends the query definition to the database. The database parses and optimizes it.
+    statement = "deleteOfflineMessage";
+    query = "DELETE FROM offlinemessages WHERE receiver = $1;" ;
+    resultPrepare = PQprepare(conn, statement.c_str(), query.c_str(), 1, NULL); // 1 = number of parameters, NULL = parameter types (let DB infer)
+
+    // unsuccessful statement preparations
+    if (PQresultStatus(resultPrepare) != PGRES_COMMAND_OK) {
+        std::cerr << "Failed to prepare statement '" << statement << "': " << PQerrorMessage(conn) << std::endl;
+        PQclear(resultPrepare);
+        PQfinish(conn);
+    } else {
+        // successful statement preparation
+        std::cout << "Statement '" << statement << "' prepared successfully.\n";
+        PQclear(resultPrepare); // Always clear the result of PQprepare
+    }
+
+    // prepares the statement of inserting offline messages into databases
+    statement = "insertOfflineMessage";
+    query = "INSERT INTO offlinemessages (sender, receiver, messagecontent) VALUES ($1, $2, $3)";
+
+    // 3 = number of parameters, NULL = parameter types (let DB infer), prepares the results into conn to be used
+    PGresult *resultStatement = PQprepare(conn, statement.c_str(), query.c_str(), 3, NULL);
+
+    // logging for successful statement preparation
+    if (PQresultStatus(resultStatement) != PGRES_COMMAND_OK) {
+        std::cerr << "Failed to prepare statement '" << statement << "': " << PQerrorMessage(conn) << std::endl;
+        PQclear(resultStatement);
+        PQfinish(conn);
+    } else {
+        // successful statement preparations
+        std::cout << "Statement: '" << statement << "' prepared successfully.\n";
+        PQclear(resultStatement); // Always clear the result of PQprepare
+    }
+
+
+
     // starts WSADATA api
     WSADATA wsa;
     WSAStartup(MAKEWORD(2,2), &wsa);
@@ -85,7 +277,7 @@ int main() {
             std::lock_guard<std::mutex> lock(clientsMutex);
             clients.push_back(clientSocket);
         }
-        std::thread(handleClients, clientSocket).detach(); // starts the handling of client in a thread
+        std::thread(handleClients, clientSocket, conn).detach(); // starts the handling of client in a thread
         std::cout << "Client connected\n";
     }
     WSACleanup();
