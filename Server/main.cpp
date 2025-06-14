@@ -75,7 +75,7 @@ void deleteOfflineMessages(std::string user, PGconn *conn) {
     }
 }
 
-void loadOfflineMessages(std::string user, PGconn *conn) {
+int loadOfflineMessages(std::string user, PGconn *conn) {
     const std::string statement = "getOfflineMessages";
     // creates a array of character to hold parameters
     const char *parameterValues[1];
@@ -105,14 +105,16 @@ void loadOfflineMessages(std::string user, PGconn *conn) {
     } else {
         int num_rows = PQntuples(result);
         // LOGGING
-        std::cout << "MESSAGE FOUND\n";
+        std::cout << "SEARCHING FOR OFFLINE MESSAGES\n";
         if (num_rows > 0) {
             for (int i = 0; i < num_rows; i++) {
                 std::cout << "MESSAGE NUMBER " << i + 1 <<  ": " << PQgetvalue(result, i, 0) << "\n";
                 send(userToSocketDictionary[user], PQgetvalue(result, i, 0), strlen(PQgetvalue(result, i, 0)), 0);
             }
+            return 1;
         } else {
             std::cout << "NO MESSAGE SENT TO : " << user << std::endl;
+            return 0;
         }
 
         // 7. Clear the execution result.
@@ -145,10 +147,24 @@ void handleClients(SOCKET clientSocket, PGconn *conn) {
             userToSocketDictionary[bufferString.substr(12)] = clientSocket;
 
             // add loading offline messages here
-            loadOfflineMessages(bufferString.substr(12), conn);
+            int resultFromLoading = loadOfflineMessages(bufferString.substr(12), conn);
 
-            // deletes the offline messages
-            deleteOfflineMessages(bufferString.substr(12), conn);
+            // if offline messages was found for current user
+            if (resultFromLoading == 1) {
+                // deletes the offline messages
+                deleteOfflineMessages(bufferString.substr(12), conn);
+            }
+        } else if (bufferString.find("LOGGEDOUT# = ") != std::string::npos){
+            // LOGGING
+            std::cout << "Removing user from server lists: USER: " << bufferString.substr(13) << "\n";
+
+            // removes user client from  dictionary {name:socket}
+            size_t RS = userToSocketDictionary.erase(bufferString.substr(13));
+            if (RS > 0) {
+                std::cout << "Successfully removed user from server, USER: " << bufferString.substr(13) << "\n";
+            } else {
+                std::cerr << "No user found, something went wrong || LINE 161" << "\n";
+            }
 
         } else { // regular messages
             // getting the receiver's name || RECEIVER: ####;

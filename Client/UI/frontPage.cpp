@@ -132,8 +132,13 @@ void frontPage::loadPrivateMessageComboBox() {
 
 void frontPage::closeEvent(QCloseEvent *event)
 {
-    event->ignore(); // Allows the window to close
+    std::string logOutMessage = "LOGGEDOUT# = " + session::getInstance().getUsername();
+    event->ignore(); // Denies the window to close
 
+    // sends message to server that user is logging out
+    main.sendMessage(clientsock, logOutMessage);
+
+    event->accept(); // Allows the window to close
 }
 
 frontPage::frontPage(SOCKET sock, PGconn *conn, QWidget *parent):QMainWindow(parent), clientsock(sock), conn(conn){
