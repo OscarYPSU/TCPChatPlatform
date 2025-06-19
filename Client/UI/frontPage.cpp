@@ -10,6 +10,30 @@
 #include <mutex>
 #include <thread>
 
+std::string currentlySelectedTargetUser;
+
+std::string messageProcessor(std::string rawMessage) {
+    std::string message;
+    std::string userTalking;
+    std::string processedMessage;
+
+    size_t firstEndingIndex = rawMessage.find(";");
+    size_t secondEndingIndex = rawMessage.find(";", firstEndingIndex + 1);
+
+    // finds the user talking
+    size_t indexUser = rawMessage.find("USER: ") + 6;
+    userTalking = rawMessage.substr(indexUser, firstEndingIndex - indexUser);
+    std::cout << "USER SENDING MESSAGE: " << userTalking << "\n"; //logging
+
+    // finds the message
+    size_t messageIndex = rawMessage.find("MESSAGE: ") + 9;
+    message = rawMessage.substr(messageIndex, secondEndingIndex - messageIndex);
+    std::cout << "SENDING MESSAGE: " << message << "\n"; //logging
+
+    processedMessage = userTalking + ": " + message;
+    return processedMessage;
+}
+
 void frontPage::registerButtonClicked() {
     // gets username and password form user input
     QString username = newUI.usernameUserInput->toPlainText();
@@ -53,11 +77,9 @@ void frontPage::loginButtonClicked() {
 
 void frontPage::updateReceivedMessage() {
     while (true) {
-        std::string message;
         std::string rawMessage;
-        std::string userTalking;
         std::string processedMessage;
-
+        std::string userTalking;
         {
             std::lock_guard<std::mutex> lock(messagesMutex);
             // if the vector is not empty
@@ -66,21 +88,7 @@ void frontPage::updateReceivedMessage() {
                 rawMessage = receivedMessages.front();
                 receivedMessages.erase(receivedMessages.begin());
 
-
-                size_t firstEndingIndex = rawMessage.find(";");
-                size_t secondEndingIndex = rawMessage.find(";", firstEndingIndex + 1);
-
-                // finds the user talking
-                size_t indexUser = rawMessage.find("USER: ") + 6;
-                userTalking = rawMessage.substr(indexUser, firstEndingIndex - indexUser);
-                std::cout << "USER SENDING MESSAGE: " << userTalking << "\n"; //logging
-
-                // finds the message
-                size_t messageIndex = rawMessage.find("MESSAGE: ") + 9;
-                message = rawMessage.substr(messageIndex, secondEndingIndex - messageIndex);
-                std::cout << "SENDING MESSAGE: " << message << "\n"; //logging
-
-                processedMessage = userTalking + ": " + message;
+                processedMessage = messageProcessor(rawMessage);
 
             } else {
                 // stops thread for tiny bit
@@ -88,12 +96,18 @@ void frontPage::updateReceivedMessage() {
                 continue;
             }
         }
-
-        // This MUST run on the QT GUI thread
-        QMetaObject::invokeMethod(this, [this, processedMessage]() {
-            QString qMessage = QString::fromStdString(processedMessage);
-            newUI.displayMessageText->appendPlainText(qMessage);
-        });
+        // only if the currently selected user is the user of the receiving message will the message box get updated
+        size_t firstColon = processedMessage.find(":");
+        userTalking = processedMessage.substr(0, firstColon);
+        // Logging
+        std::cout << userTalking << " | LINE 103 frontPage.cpp \n ";
+        if (userTalking == currentlySelectedTargetUser) {
+            // This MUST run on the QT GUI thread
+            QMetaObject::invokeMethod(this, [this, processedMessage]() {
+                QString qMessage = QString::fromStdString(processedMessage);
+                newUI.displayMessageText->appendPlainText(qMessage);
+            });
+        }
     }
 }
 
@@ -118,7 +132,7 @@ void frontPage::onSendButtonClicked() {
     newUI.userMessageTextInput->clear();
 
     // Adds text chat history
-    newUI.displayMessageText->appendPlainText("You: " + inputText);
+    newUI.displayMessageText->appendPlainText(QString::fromStdString(session::getInstance().getUsername())+ ": " + inputText);
 
 }
 
@@ -126,7 +140,9 @@ void frontPage::loadPrivateMessageComboBox() {
     std::vector<std::string> usernameList = getUsernames(conn); // gets the usernames lists
     // fills all existing username into combo box
     for (std::string username : usernameList) {
-        newUI.selectPrivateMessageComboBox->addItem(QString::fromStdString(username));
+        if (username != session::getInstance().getUsername()) {
+            newUI.selectPrivateMessageComboBox->addItem(QString::fromStdString(username));
+        }
     }
 }
 
@@ -141,14 +157,35 @@ void frontPage::closeEvent(QCloseEvent *event)
     event->accept(); // Allows the window to close
 }
 
+void frontPage::onPrivateMessageComboxBoxChange(const QString &text) {
+    std::string processedMessage;
+    std::string textString = text.toStdString();
+
+    //logging
+    std::cout << "user selected : " + textString + " | LINE 146 frontpage.h \n";
+
+    // updates global variable
+    currentlySelectedTargetUser = textString;
+
+    //retrieves the messages between the user and selected user
+    std::vector<std::string> messages = getMessageHistory(conn, textString);
+
+    // add updating the message window base on message history
+    newUI.displayMessageText->clear();
+    for (std::string rawMessage: messages) {
+        processedMessage = messageProcessor(rawMessage);
+        newUI.displayMessageText->appendPlainText(QString::fromStdString(processedMessage));
+    }
+
+}
+
 frontPage::frontPage(SOCKET sock, PGconn *conn, QWidget *parent):QMainWindow(parent), clientsock(sock), conn(conn){
     newUI.setupUi(this);
     connect(newUI.registerButton, &QPushButton::clicked, this, &frontPage::registerButtonClicked);
     connect(newUI.loginButton, &QPushButton::clicked, this, &frontPage::loginButtonClicked);
     connect(newUI.sendButton, &QPushButton::clicked, this, &frontPage::onSendButtonClicked);
-
-    // creates a thread that constantly updates the message box
-    std::thread([this]() { updateReceivedMessage(); }).detach();
+    connect(newUI.selectPrivateMessageComboBox, &QComboBox::currentTextChanged, this, &frontPage::onPrivateMessageComboxBoxChange);
+    std::thread([this]() { updateReceivedMessage(); }).detach(); // creates a thread that constantly updates the message box
 
     // Hides the wrong user credential text
     newUI.wrongCrfedentialsLabel->hide();

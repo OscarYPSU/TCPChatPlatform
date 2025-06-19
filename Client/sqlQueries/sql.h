@@ -14,6 +14,7 @@
 int registerUser(PGconn *conn, std::string &username, std::string &password);
 int loginUser(PGconn *conn, std::string &username, std::string &password);
 std::vector<std::string> getUsernames(PGconn *conn);
+std::vector<std::string> getMessageHistory(PGconn *conn, std::string sender);
 
 
 #endif //SQL_H

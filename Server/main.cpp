@@ -6,10 +6,50 @@
 #include <unordered_map>
 #include <libpq-fe.h>
 
+#include <ctime>
+#include <chrono>
+#include <format>
+
 
 std::vector<SOCKET> clients;
 std::mutex clientsMutex;
 std::unordered_map<std::string, SOCKET> userToSocketDictionary;
+
+void storeMessage(std::string user, std::string receiver, std::string message, PGconn * conn) {
+    std::string statement = "storeMessage";
+    // loads parameter values into paramterValues to be input into statement
+    const char *parameterValues[4];
+    parameterValues[0] = user.c_str();
+    parameterValues[1] = receiver.c_str();
+    parameterValues[2] = message.c_str();
+
+    // formatting for current time
+    auto timeNow = std::chrono::system_clock::now();
+    std::cout << timeNow << "\n";
+    std::string timestampString = std::format("{:%Y-%m-%d %H:%M:%S%z}", timeNow);
+    std::cout << "Formatted timestamp: " << timestampString << "\n";
+
+    parameterValues[3] = timestampString.c_str();
+
+    // formatting of statements
+    // paramLengths: An array of lengths for binary parameters. For text parameters, set to 0 or NULL.
+    int paramLengths[4] = {0, 0 , 0, 0}; // 0 indicates null-terminated string
+    // paramFormats: An array indicating format (0 for text, 1 for binary). We're using text.
+    int paramFormats[4] = {0, 0 , 0, 0};
+
+    PGresult *result = PQexecPrepared(conn, statement.c_str(), 4, parameterValues, paramLengths, paramFormats, 0);
+
+    // logging
+    if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+        std::cerr << "Execution of prepared statement failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+        PQfinish(conn);
+    } else {
+        std::cout << "Success in adding message into offline databse || LINE 51\n";
+        // Clear the execution result.
+        PQclear(result);
+    }
+}
 
 void insertOfflineMessage(std::string user, std::string receiver, std::string message, PGconn *conn) {
     std::string statement = "insertOfflineMessage";
@@ -172,7 +212,7 @@ void handleClients(SOCKET clientSocket, PGconn *conn) {
             size_t receiverIndex = bufferString.find("RECEIVER: ") + 10;
             receiver = bufferString.substr(receiverIndex, lastEndingIndex - receiverIndex);
 
-            // gets the sender's name d
+            // gets the sender's name
             size_t firstEndingIndex = bufferString.find(";");
             size_t senderIndex = bufferString.find("USER: ") + 6;
             sender = bufferString.substr(senderIndex, firstEndingIndex - senderIndex);
@@ -184,6 +224,7 @@ void handleClients(SOCKET clientSocket, PGconn *conn) {
             std::lock_guard<std::mutex> lock(clientsMutex);
             // receiver found
             if (userToSocketDictionary.find(receiver) != userToSocketDictionary.end()){
+                // sends message to target user
                 send(userToSocketDictionary[receiver], buffer, bytesReceived, 0);
             } else { // receiver is not found AKA receiver is offline or does not exists
                 // validate receiver exists in db
@@ -195,6 +236,9 @@ void handleClients(SOCKET clientSocket, PGconn *conn) {
                 insertOfflineMessage(sender, receiver, bufferString, conn);
 
             }
+
+            // stores the message into database for message history
+            storeMessage(sender, receiver, bufferString, conn);
         }
     }
 }
@@ -249,20 +293,34 @@ int main() {
     query = "INSERT INTO offlinemessages (sender, receiver, messagecontent) VALUES ($1, $2, $3)";
 
     // 3 = number of parameters, NULL = parameter types (let DB infer), prepares the results into conn to be used
-    PGresult *resultStatement = PQprepare(conn, statement.c_str(), query.c_str(), 3, NULL);
+    resultPrepare = PQprepare(conn, statement.c_str(), query.c_str(), 3, NULL);
 
     // logging for successful statement preparation
-    if (PQresultStatus(resultStatement) != PGRES_COMMAND_OK) {
+    if (PQresultStatus(resultPrepare) != PGRES_COMMAND_OK) {
         std::cerr << "Failed to prepare statement '" << statement << "': " << PQerrorMessage(conn) << std::endl;
-        PQclear(resultStatement);
+        PQclear(resultPrepare);
         PQfinish(conn);
     } else {
         // successful statement preparations
         std::cout << "Statement: '" << statement << "' prepared successfully.\n";
-        PQclear(resultStatement); // Always clear the result of PQprepare
+        PQclear(resultPrepare); // Always clear the result of PQprepare
     }
 
+    // prepares the statement of inserting messages into databases
+    statement = "storeMessage";
+    query = "INSERT INTO messagehistory (sender, receiver, messagecontent, timestamp) VALUES ($1, $2, $3, $4)";
+    resultPrepare = PQprepare(conn, statement.c_str(), query.c_str(), 4, NULL);
 
+    // logging for successful statement preparation
+    if (PQresultStatus(resultPrepare) != PGRES_COMMAND_OK) {
+        std::cerr << "Failed to prepare statement '" << statement << "': " << PQerrorMessage(conn) << std::endl;
+        PQclear(resultPrepare);
+        PQfinish(conn);
+    } else {
+        // successful statement preparations
+        std::cout << "Statement: '" << statement << "' prepared successfully.\n";
+        PQclear(resultPrepare); // Always clear the result of PQprepare
+    }
 
     // starts WSADATA api
     WSADATA wsa;

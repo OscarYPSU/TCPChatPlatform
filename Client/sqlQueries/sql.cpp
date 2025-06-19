@@ -6,6 +6,7 @@
 #include <libpq-fe.h>
 #include<iostream>
 #include <vector>
+#include "../session/session.h"
 
 
 int registerUser(PGconn *conn, std::string &username, std::string &password) {
@@ -50,19 +51,42 @@ std::vector<std::string> getUsernames(PGconn *conn) {
     if (PQresultStatus(result) != PGRES_TUPLES_OK) {
         std::cerr << "SELECT failed: " << PQerrorMessage(conn) << std::endl;
         PQclear(result);
-    }
-
-    int rows = PQntuples(result);
-    if (rows == 0) {
-        std::cerr << "No user is found\n";
-        PQclear(result);
     } else {
-        for (int i = 0; i < rows; ++i) {
-            std::cout << "ADDING USERNAME TO LIST: " << PQgetvalue(result, i, 0) << "\n"; // logging
-            listUsernames.push_back(PQgetvalue(result, i, 0));
+        int rows = PQntuples(result);
+        if (rows == 0) {
+            std::cerr << "No user is found\n";
+            PQclear(result);
+        } else {
+            for (int i = 0; i < rows; ++i) {
+                std::cout << "ADDING USERNAME TO LIST: " << PQgetvalue(result, i, 0) << "\n"; // logging
+                listUsernames.push_back(PQgetvalue(result, i, 0));
+            }
         }
-    }
 
+        return listUsernames;
+    }
     return listUsernames;
 }
 
+std::vector<std::string> getMessageHistory(PGconn *conn, std::string sender) {
+    std::string user = session::getInstance().getUsername();
+    std::vector<std::string> messages;
+    std::string query = "SELECT messagecontent FROM messagehistory WHERE sender = '" + sender + "' AND receiver = '" + user + "' OR sender = '" + user + "' AND receiver = '" + sender + "';";
+
+    PGresult *result = PQexec(conn, query.c_str());
+    if (PQresultStatus(result) != PGRES_TUPLES_OK) {
+        std::cerr << "SELECT failed: " << PQerrorMessage(conn) << std::endl;
+        PQclear(result);
+    }
+    int rows = PQntuples(result);
+    if (rows == 0) {
+        std::cout << "No message found | LINE 83 sql.cpp\n";
+    } else {
+        for (int i = 0; i < rows; ++i) {
+            std::cout << "ADDING MESSAGE TO LIST: " << PQgetvalue(result, i, 0) << " | LINE 87 sql.cpp\n"; // logging
+            messages.push_back(PQgetvalue(result, i, 0));
+        }
+    }
+    PQclear(result);
+    return messages;
+}
