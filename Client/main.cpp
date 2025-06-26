@@ -3,6 +3,7 @@
 #include<thread>
 #include<mutex>
 #include<vector>
+#include<chrono>
 #include <libpq-fe.h>
 #include "main.h"
 #include "UI/frontPage.h"
@@ -58,7 +59,14 @@ int main(int argc, char *argv[]) {
 
 
     // Connects the client socket to the server address and sends the server user's username
-    connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    int result = connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    // attempts to reconnect to server if there is no server found at current moment
+    while (result == SOCKET_ERROR) {
+        std::cerr << "Error in connecting to server | LINE 63 main.cpp\n";
+        result = connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr));
+        std::cout << "Attempting to connect to server\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+    }
 
     std::cout <<"Successfuly connected to server!\n";
 

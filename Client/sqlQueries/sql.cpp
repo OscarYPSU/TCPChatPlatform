@@ -68,10 +68,12 @@ std::vector<std::string> getUsernames(PGconn *conn) {
     return listUsernames;
 }
 
-std::vector<std::string> getMessageHistory(PGconn *conn, std::string sender) {
+std::vector<std::vector<std::string>> getMessageHistory(PGconn *conn, std::string sender) {
     std::string user = session::getInstance().getUsername();
     std::vector<std::string> messages;
-    std::string query = "SELECT messagecontent FROM messagehistory WHERE sender = '" + sender + "' AND receiver = '" + user + "' OR sender = '" + user + "' AND receiver = '" + sender + "';";
+    std::vector<std::string> timestamps;
+
+    std::string query = "SELECT messagecontent, timestamp FROM messagehistory WHERE (sender = '" + sender + "' AND receiver = '" + user + "') OR (sender = '" + user + "' AND receiver = '" + sender + "');";
 
     PGresult *result = PQexec(conn, query.c_str());
     if (PQresultStatus(result) != PGRES_TUPLES_OK) {
@@ -85,8 +87,9 @@ std::vector<std::string> getMessageHistory(PGconn *conn, std::string sender) {
         for (int i = 0; i < rows; ++i) {
             std::cout << "ADDING MESSAGE TO LIST: " << PQgetvalue(result, i, 0) << " | LINE 87 sql.cpp\n"; // logging
             messages.push_back(PQgetvalue(result, i, 0));
+            timestamps.push_back(PQgetvalue(result, i, 1));
         }
     }
     PQclear(result);
-    return messages;
+    return {messages, timestamps};
 }

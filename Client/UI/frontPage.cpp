@@ -34,6 +34,15 @@ std::string messageProcessor(std::string rawMessage) {
     return processedMessage;
 }
 
+std::string timeProcessor(std::string rawTimeStamp) {
+    std::string timeOnly;
+
+    timeOnly = rawTimeStamp.substr(11, 5);
+    std::cout << "Processed Time Stamp: " << timeOnly << "\n";
+
+    return timeOnly;
+}
+
 void frontPage::registerButtonClicked() {
     // gets username and password form user input
     QString username = newUI.usernameUserInput->toPlainText();
@@ -159,6 +168,7 @@ void frontPage::closeEvent(QCloseEvent *event)
 
 void frontPage::onPrivateMessageComboxBoxChange(const QString &text) {
     std::string processedMessage;
+    std::string processedTimeStamp;
     std::string textString = text.toStdString();
 
     //logging
@@ -168,13 +178,21 @@ void frontPage::onPrivateMessageComboxBoxChange(const QString &text) {
     currentlySelectedTargetUser = textString;
 
     //retrieves the messages between the user and selected user
-    std::vector<std::string> messages = getMessageHistory(conn, textString);
+    auto data = getMessageHistory(conn, textString);
+
+    std::vector<std::string> messages = data[0];
+    std::vector<std::string> timestamps = data[1];
 
     // add updating the message window base on message history
     newUI.displayMessageText->clear();
     for (std::string rawMessage: messages) {
         processedMessage = messageProcessor(rawMessage);
+
         newUI.displayMessageText->appendPlainText(QString::fromStdString(processedMessage));
+    }
+    for (std::string timestamp : timestamps) {
+        processedTimeStamp = timeProcessor(timestamp);
+        newUI.DisplayTimeStampForTextMessage->appendPlainText(QString::fromStdString(processedTimeStamp));
     }
 
 }
